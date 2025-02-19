@@ -843,7 +843,56 @@ function updateForwardListeners(force = false) {
 }
 
 // eslint-disable-next-line sonarjs/sonar-max-params
-function forwardMessage(rule, fromPeer, sourceId, toPeer, lastProcessedId, messageId, message, messageEditDate) {
+function forwardMessage(rule, fromPeer, sourceId, toPeer, lastProcessedId, messageId, message, messageEditDate, messageFull) {
+  const hasEntities = (Array.isArray(messageFull.entities) && messageFull.entities.length > 0);
+  const messageInput = {
+      peer: toPeer,
+      message: message ,
+      randomId: getRandomId(),
+      noWebpage: false,
+      noforwards: false,
+      silent: false,
+      background: false,
+      withMyScore: false,
+      grouped: false,
+      fromLive: false,
+      useQuickAck: false,
+      scheduleDate: null,
+      entities: messageFull.entities,
+  };
+  let isMedia = false;
+  if (!hasEntities && messageFull.media != null && !(messageFull.media instanceof Api.MessageMediaEmpty)) {
+    isMedia = true;
+    messageInput.media = messageFull.media;
+    log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Message is media`, logAsUser);
+  }
+  if ((!message || message === "") && !isMedia && !hasEntities) {
+    messageInput.message = '_';
+  }
+  // if (rule.to.topicId !== null && rule.to.topicId !== undefined) {
+  //   messageInput.topMsgId = rule.to.topicId;
+  // }
+  clientAsUser
+    .invoke(!isMedia ? new Api.messages.SendMessage(messageInput) : new Api.messages.SendMedia(messageInput))
+    .then((res) => {
+      if (rule.antiFastEditDelay > 0 && lastForwardedDelayed[rule.from.id] === undefined) {
+        delete lastForwardedDelayed[rule.from.id];
+      }
+      log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Message is forwarded successfully!`, logAsUser);
+      if (messageId > lastProcessedId) {
+        lastProcessed[rule.from.id] = {id: messageId, editDate: messageEditDate};
+        cache.setItem('lastProcessed', lastProcessed);
+      }
+      lastForwarded[rule.from.id] = {id: messageId, editDate: messageEditDate, message: message};
+      cache.setItem('lastForwarded', lastForwarded);
+    })
+    .catch((err) => {
+      log.warn(`[${rule.label}, ${sourceId}, ${messageId}]: ${err}`, logAsUser);
+    });
+}
+
+// eslint-disable-next-line sonarjs/sonar-max-params
+function forwardMessageOriginal(rule, fromPeer, sourceId, toPeer, lastProcessedId, messageId, message, messageEditDate) {
   const forwardMessageInput = {
     fromPeer: fromPeer,
     id: [messageId],
@@ -885,7 +934,8 @@ function onMessageToForward(event, onRefresh = false, onEdit = false) {
     message = event.message.message || '',
     messageId = event.message.id,
     messageEditDate = event.message.editDate || 0,
-    messageIsString = typeof event.message.message === 'string';
+    messageIsString = typeof event.message.message === 'string',
+    messageFull = event.message;
   log.info(
     `[${sourceId}, ${messageId}]: Message in monitored channel/group via ${onRefresh ? 'refresh' : 'event'} ${
       onEdit ? 'onEdit' : 'onNew'
@@ -1000,11 +1050,11 @@ function onMessageToForward(event, onRefresh = false, onEdit = false) {
             id: messageId,
             timeout: setTimeout(() => {
               delete lastForwardedDelayed[rule.from.id];
-              forwardMessage(rule, peerId, sourceId, entityTo, lastProcessedId, messageId, message, messageEditDate);
+              forwardMessage(rule, peerId, sourceId, entityTo, lastProcessedId, messageId, message, messageEditDate, messageFull);
             }, rule.antiFastEditDelay * 1000),
           };
         } else {
-          forwardMessage(rule, peerId, sourceId, entityTo, lastProcessedId, messageId, message, messageEditDate);
+          forwardMessage(rule, peerId, sourceId, entityTo, lastProcessedId, messageId, message, messageEditDate, messageFull);
         }
       } else {
         log.debug(`[${rule.label}, ${sourceId}, ${messageId}]: Message is not forwarded! See reasons above.`, logAsUser);
