@@ -1050,7 +1050,7 @@ async function getKeywords(text) {
   keywords = keywords.replace(/\s+\,/g, ",");  // remove duplicate commas
   keywords = keywords.replace(/\,{2,}/g, ","); // remove duplicate commas
   keywords = trimWord(keywords, ",");
-  keywordsArr = keywords.split(",").filter(Boolean).filter((a) => a.length > 3); // remove empty elements and short elements
+  keywordsArr = keywords.split(",").filter(Boolean).filter((a) => a.length > 2); // remove empty elements and short elements
   keywordsArr.sort((a, b) => b.length - a.length);  // sort longest string to shortest
   return keywordsArr;
 }
