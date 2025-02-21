@@ -1,3 +1,5 @@
+const axios = require('axios');
+
 const {Api, TelegramClient} = require('telegram');
 const {StringSession, StoreSession} = require('telegram/sessions');
 const {Button} = require('telegram/tl/custom/button');
@@ -15,6 +17,7 @@ const {EditedMessage} = require('telegram/events/EditedMessage');
 const {CallbackQuery, CallbackQueryEvent} = require('telegram/events/CallbackQuery');
 const {name: scriptName, version: scriptVersion} = require('./version');
 const i18n = require('./modules/i18n/i18n.config');
+const { sleep } = require('telegram/Helpers');
 
 const refreshIntervalDefault = 300;
 const resubscribeIntervalDefault = 60;
@@ -843,7 +846,7 @@ function updateForwardListeners(force = false) {
 }
 
 // eslint-disable-next-line sonarjs/sonar-max-params
-function forwardMessage(rule, fromPeer, sourceId, toPeer, lastProcessedId, messageId, message, messageEditDate, messageFull) {
+function forwardMessage(rule, fromPeer, sourceId, toPeer, lastProcessedId, messageId, message, messageEditDate, messageFull, keywords) {
   const hasEntities = (Array.isArray(messageFull.entities) && messageFull.entities.length > 0);
   const messageInput = {
       peer: toPeer,
@@ -889,6 +892,31 @@ function forwardMessage(rule, fromPeer, sourceId, toPeer, lastProcessedId, messa
     .catch((err) => {
       log.warn(`[${rule.label}, ${sourceId}, ${messageId}]: ${err}`, logAsUser);
     });
+  // Send keyword with new message
+  if (keywords.length >= 3) {
+    sleep(100);
+    const keywordInput = {
+        peer: toPeer,
+        message: keywords,
+        randomId: getRandomId(),
+        noWebpage: true,
+        noforwards: false,
+        silent: false,
+        background: false,
+        withMyScore: false,
+        grouped: false,
+        fromLive: false,
+        useQuickAck: false,
+        scheduleDate: null,
+    };
+    clientAsUser
+      .invoke(new Api.messages.SendMessage(keywordInput))
+      .then((res) => {
+      })
+      .catch((err) => {
+        log.warn(`[${rule.label}, ${sourceId}, ${messageId}]: ${err}`, logAsUser);
+      });
+  }
 }
 
 // eslint-disable-next-line sonarjs/sonar-max-params
@@ -928,14 +956,89 @@ function forwardMessageOriginal(rule, fromPeer, sourceId, toPeer, lastProcessedI
     });
 }
 
-function onMessageToForward(event, onRefresh = false, onEdit = false) {
+// Helper function to detect if a string contains another string
+//     at a specific position. 
+// Equivalent to using `str.indexOf(substr, pos) === pos` but *should* be more efficient on longer strings as it can exit early (needs benchmarks to back this up).
+function hasSubstringAt(str, substr, pos) {
+    var idx = 0, len = substr.length;
+
+    for (var max = str.length; idx < len; ++idx) {
+        if ((pos + idx) >= max || str[pos + idx] != substr[idx])
+            break;
+    }
+
+    return idx === len;
+}
+
+function trimWord(str, word) {
+    var start = 0,
+        end = str.length,
+        len = word.length;
+
+    while (start < end && hasSubstringAt(str, word, start))
+        start += word.length;
+
+    while (end > start && hasSubstringAt(str, word, end - len))
+        end -= word.length
+
+    return (start > 0 || end < str.length) ? str.substring(start, end) : str;
+}
+
+function cleanText(text) {
+  let res = text || "";
+  res = res.replaceAll(/\d+\:\d+\:\d+/g, ''); // Remove timestamp
+  res = res.replaceAll('[Tweet]', '');  // remove weak words
+  res = res.replaceAll('[ReTweet]', '');  // remove weak words
+  res = res.replaceAll('[Reply]', '');  // remove weak words
+  res = res.replaceAll('[Quote]', '');  // remove weak words
+  res = res.replaceAll(/(Quote|ReTweet|Tweet|Reply|Comment) from [^\s]*/g, ''); // remove context words
+  res = res.replace(/@[^\s]+/g, "");  // remove emails
+  res = res.replace(/[a-zA-Z]+\:\/\/[^\s]*/g, "");  // remove links
+  res = res.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '') // remove emoji
+  res = res.replace(/\s{2,}/g, " "); // remove duplicate spaces
+  return res.trim();
+}
+
+async function getKeywords(text) {
+  const translateArgs = {
+      q: text,
+      source: "en",
+      target: "ko",
+      format: "text",
+      alternatives: 0,
+      api_key: "15bfbc43-e257-44de-bb2e-bdceaa5df6f6"
+    };
+  
+  let keywords = '';
+  await axios.post("https://translate112233.kantrok.com/translate", translateArgs, {
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json;",
+    }})
+  .then(function (res) {
+    log.info(res.data);
+    keywords = res.data.translatedText;
+  })
+  .catch(function (e) {
+    log.error(e)
+  }); 
+  
+  keywords = keywords.replace(/[^\x00-\x7F]/g, ','); // remove all non-ascii
+  keywords = cleanText(keywords);
+  keywords = keywords.replace(/\,\s+/g, ",");  // remove duplicate commas
+  keywords = keywords.replace(/\,{2,}/g, ","); // remove duplicate commas
+  keywords = trimWord(keywords, ",");
+  return keywords || '';
+}
+
+async function onMessageToForward(event, onRefresh = false, onEdit = false) {
   const peerId = event.message?.peerId,
     sourceId = Number(peerId?.channelId || peerId?.userId || peerId?.chatId || 0),
-    message = event.message.message || '',
     messageId = event.message.id,
     messageEditDate = event.message.editDate || 0,
     messageIsString = typeof event.message.message === 'string',
     messageFull = event.message;
+  let message = event.message.message || '';
   log.info(
     `[${sourceId}, ${messageId}]: Message in monitored channel/group via ${onRefresh ? 'refresh' : 'event'} ${
       onEdit ? 'onEdit' : 'onNew'
@@ -1040,6 +1143,28 @@ function onMessageToForward(event, onRefresh = false, onEdit = false) {
           });
         log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Result of rules check to forward: ${toForward}`, logAsUser);
       }
+      // Filter out irrelevant messages.
+      let keywords = cleanText(message);
+      const messageLower = message.toLowerCase();
+      if (toForward && messageLower.includes('profile') === false && messageLower.includes('username') === false) {
+        if (toForward && keywords.length > 100) {
+          toForward = false;
+          log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Skipped forwarding: Message too long`, logAsUser);
+        }
+        if (toForward && keywords.length <= 3) {
+          toForward = false;
+          log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Skipped forwarding: Message too short`, logAsUser);
+        }
+        // send to translation service to find named entities.
+        if (toForward) {
+          keywords = await getKeywords(keywords);
+        }
+        if (toForward && keywords.length <= 3 || keywords.length > 100) {
+          toForward = false;
+          log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Skipped forwarding: keywords too short or too long`, logAsUser);
+        }
+      }
+      // Continue forwarding the message.
       if (toForward) {
         if (rule.processEditsOnForwarded === true && rule.antiFastEditDelay > 0) {
           log.debug(
@@ -1050,11 +1175,11 @@ function onMessageToForward(event, onRefresh = false, onEdit = false) {
             id: messageId,
             timeout: setTimeout(() => {
               delete lastForwardedDelayed[rule.from.id];
-              forwardMessage(rule, peerId, sourceId, entityTo, lastProcessedId, messageId, message, messageEditDate, messageFull);
+              forwardMessage(rule, peerId, sourceId, entityTo, lastProcessedId, messageId, message, messageEditDate, messageFull, keywords);
             }, rule.antiFastEditDelay * 1000),
           };
         } else {
-          forwardMessage(rule, peerId, sourceId, entityTo, lastProcessedId, messageId, message, messageEditDate, messageFull);
+          forwardMessage(rule, peerId, sourceId, entityTo, lastProcessedId, messageId, message, messageEditDate, messageFull, keywords);
         }
       } else {
         log.debug(`[${rule.label}, ${sourceId}, ${messageId}]: Message is not forwarded! See reasons above.`, logAsUser);
