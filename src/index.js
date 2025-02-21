@@ -899,21 +899,25 @@ function forwardMessage(rule, fromPeer, sourceId, toPeer, lastProcessedId, messa
   // Send keyword with new message
   if (keywords?.length > 0) {
     sleep(100);
-    const keywordMarkup = new Api.ReplyInlineMarkup({
-      rows : [
-        new Api.KeyboardButtonRow({
-          buttons : [
-            new Api.KeyboardButtonUrl({
-                text : "DexScreener",
-                url : "https://dexscreener.com"
-            })
-          ]
-        })
-      ]
-    })
+    // const keywordMarkup = new Api.ReplyInlineMarkup({
+    //   rows : [
+    //     new Api.KeyboardButtonRow({
+    //       buttons : [
+    //         new Api.KeyboardButtonUrl({
+    //             text : "DexScreener",
+    //             url : "https://dexscreener.com"
+    //         })
+    //       ]
+    //     })
+    //   ]
+    // })
+    let messageKeywords = "";
+    for (let i = 0; i < keywords.length; i++) {
+      messageKeywords = messageKeywords.concat("\r\n" + keywords[i] + "\r\n" + 'http://dexscreener.com/search?q=' + encodeURIComponent(keywords[i]) + "\r\n");
+    }
     const keywordInput = {
         peer: toPeer,
-        message: keywords.join("\r\n"),
+        message: messageKeywords,
         randomId: getRandomId(),
         noWebpage: true,
         noforwards: false,
@@ -924,7 +928,7 @@ function forwardMessage(rule, fromPeer, sourceId, toPeer, lastProcessedId, messa
         fromLive: false,
         useQuickAck: false,
         scheduleDate: null,
-        replyMarkup: keywordMarkup
+        replyMarkup: null
     };
     clientAsUser
       .invoke(new Api.messages.SendMessage(keywordInput))
