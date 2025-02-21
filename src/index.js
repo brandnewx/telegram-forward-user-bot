@@ -364,10 +364,14 @@ if (typeof process.env.TELEGRAM_USER_API_HASH === 'string' && process.env.TELEGR
 if (typeof process.env.TELEGRAM_BOT_AUTH_TOKEN === 'string' && process.env.TELEGRAM_BOT_AUTH_TOKEN.length > botAuthTokenMinimumLength) {
   cache.setItem('botAuthToken', process.env.TELEGRAM_BOT_AUTH_TOKEN);
 }
+if (typeof process.env.RICHFAST_MODE === 'string' && process.env.RICHFAST_MODE.length > 0) {
+  cache.setItem('richfastMode', process.env.RICHFAST_MODE);
+}
 
 let apiId = cache.getItem('apiId', 'number');
 let apiHash = cache.getItem('apiHash');
 let botAuthToken = cache.getItem('botAuthToken');
+let richfastMode = cache.getItem('richfastMode');
 let forwardRules = cache.getItem(forwardRulesId) || [];
 let meUser = null;
 let meBot = null;
@@ -893,11 +897,23 @@ function forwardMessage(rule, fromPeer, sourceId, toPeer, lastProcessedId, messa
       log.warn(`[${rule.label}, ${sourceId}, ${messageId}]: ${err}`, logAsUser);
     });
   // Send keyword with new message
-  if (keywords.length >= 3) {
+  if (keywords?.length > 0) {
     sleep(100);
+    const keywordMarkup = new Api.ReplyInlineMarkup({
+      rows : [
+        new Api.KeyboardButtonRow({
+          buttons : [
+            new Api.KeyboardButtonUrl({
+                text : "DexScreener",
+                url : "https://dexscreener.com"
+            })
+          ]
+        })
+      ]
+    })
     const keywordInput = {
         peer: toPeer,
-        message: keywords,
+        message: keywords.join("\r\n"),
         randomId: getRandomId(),
         noWebpage: true,
         noforwards: false,
@@ -908,6 +924,7 @@ function forwardMessage(rule, fromPeer, sourceId, toPeer, lastProcessedId, messa
         fromLive: false,
         useQuickAck: false,
         scheduleDate: null,
+        replyMarkup: keywordMarkup
     };
     clientAsUser
       .invoke(new Api.messages.SendMessage(keywordInput))
@@ -1017,7 +1034,7 @@ async function getKeywords(text) {
     }})
   .then(function (res) {
     log.info(res.data);
-    keywords = res.data.translatedText;
+    keywords = res.data.translatedText || '';
   })
   .catch(function (e) {
     log.error(e)
@@ -1026,9 +1043,12 @@ async function getKeywords(text) {
   keywords = keywords.replace(/[^\x00-\x7F]/g, ','); // remove all non-ascii
   keywords = cleanText(keywords);
   keywords = keywords.replace(/\,\s+/g, ",");  // remove duplicate commas
+  keywords = keywords.replace(/\s+\,/g, ",");  // remove duplicate commas
   keywords = keywords.replace(/\,{2,}/g, ","); // remove duplicate commas
   keywords = trimWord(keywords, ",");
-  return keywords || '';
+  keywordsArr = keywords.split(",").filter(Boolean).filter((a) => a.length > 3); // remove empty elements and short elements
+  keywordsArr.sort((a, b) => b.length - a.length);  // sort longest string to shortest
+  return keywordsArr;
 }
 
 async function onMessageToForward(event, onRefresh = false, onEdit = false) {
@@ -1144,24 +1164,27 @@ async function onMessageToForward(event, onRefresh = false, onEdit = false) {
         log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Result of rules check to forward: ${toForward}`, logAsUser);
       }
       // Filter out irrelevant messages.
-      let keywords = cleanText(message);
+      let keywords;
+      const richfastEnabled = (richfastMode === "basic") || (richfastMode === "keywords");
       const messageLower = message.toLowerCase();
-      if (toForward && messageLower.includes('profile') === false && messageLower.includes('username') === false) {
-        if (toForward && keywords.length > 100) {
+      const richfastPassthru = messageLower.includes('profile') || messageLower.includes('username') 
+      if (toForward && richfastEnabled && (richfastPassthru === false)) {
+        const messageClean = cleanText(message);
+        if (toForward && (messageClean.length <= 3 || messageClean.length > 100)) {
           toForward = false;
-          log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Skipped forwarding: Message too long`, logAsUser);
+          log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Skipped forwarding: message too short or too long`, logAsUser);
         }
-        if (toForward && keywords.length <= 3) {
-          toForward = false;
-          log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Skipped forwarding: Message too short`, logAsUser);
-        }
-        // send to translation service to find named entities.
-        if (toForward) {
-          keywords = await getKeywords(keywords);
-        }
-        if (toForward && keywords.length <= 3 || keywords.length > 100) {
-          toForward = false;
-          log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Skipped forwarding: keywords too short or too long`, logAsUser);
+        // send to translation service to find keywords.
+        if (toForward && (richfastMode === "keywords")) {
+          keywords = await getKeywords(messageClean);
+          log.info(
+            `[${rule.label}, ${sourceId}, ${messageId}]: Keywords: [${keywords.join(", ")}]`,
+            logAsUser,
+          );
+          if (keywords.length == 0) {
+            toForward = false;
+            log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Skipped forwarding: keywords too short or too long`, logAsUser);
+          }
         }
       }
       // Continue forwarding the message.
