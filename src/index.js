@@ -861,7 +861,7 @@ function forwardMessage(rule, fromPeer, sourceId, toPeer, lastProcessedId, messa
       entities: messageFull.entities,
   };
   let isMedia = false;
-  if (!hasEntities && messageFull.media != null && !(messageFull.media instanceof Api.MessageMediaEmpty)) {
+  if (messageFull.media != null && !(messageFull.media instanceof Api.MessageMediaEmpty) && !(messageFull.media instanceof Api.MessageMediaWebPage) && !(messageFull.media instanceof Api.MessageMediaUnsupported)) {
     isMedia = true;
     messageInput.media = messageFull.media;
     log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Message is media`, logAsUser);
