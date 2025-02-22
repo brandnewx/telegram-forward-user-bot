@@ -1054,6 +1054,12 @@ async function getKeywords(text) {
   keywordsArr = [...new Set(keywordsArr)]; // unique keywords
   keywordsArr.sort((a, b) => b.length - a.length);  // sort longest string to shortest
   keywordsArr = keywordsArr.slice(0, 3);  // take the first few keywowrds
+  // move keywords too long to the last positions.
+  for (let i = 0; i < keywords.length - 1; i++) {
+    if (keywordsArr[0].length > 30) {
+      keywordsArr.push(keywordsArr.shift());  
+    }
+  }
   return keywordsArr;
 }
 
