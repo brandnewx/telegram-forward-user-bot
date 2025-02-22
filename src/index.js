@@ -1044,6 +1044,7 @@ async function getKeywords(text) {
     log.error(e)
   }); 
   
+  keywords = keywords.normalize('NFKD').replace(/[\u0300-\u036F]/g, ''); // convert latin to asci
   keywords = keywords.replace(/[^\x00-\x7F]/g, ','); // remove all non-ascii
   keywords = cleanText(keywords);
   keywords = keywords.replace(/\,\s+/g, ",");  // remove duplicate commas
@@ -1052,11 +1053,18 @@ async function getKeywords(text) {
   keywords = trimWord(keywords, ",");
   keywords = keywords.toUpperCase();
   keywordsArr = keywords.split(",").filter(Boolean).filter((a) => a.length > 2); // remove empty elements and short elements
+  keywordsArr = keywordsArr.filter((a) => /^[\$£€¥฿¢]*[0-9]+(\.)?[0-9]*[\$£€¥฿¢]*$/.test(a) === false); // remove whole numbers
+  keywordsArr = keywordsArr.filter((a) => /\d+\/\d+\/\d+(\s+\d+\:\d+(\:\d+(\s*(AM|PM))?)?)?/.test(a) === false); // remove datetime
+  // clean keywords
+  for (let i = 0; i < keywordsArr.length; i++) {
+    keywordsArr[i] = keywordsArr[i].replace(/^[^a-zA-Z0-9]+/g, '').replace(/[^a-zA-Z0-9]+$/g, '') // trim;
+  }
+  keywordsArr = keywordsArr.filter((a) => a.length > 2); // remove empty elements and short elements
   keywordsArr = [...new Set(keywordsArr)]; // unique keywords
   keywordsArr.sort((a, b) => b.length - a.length);  // sort longest string to shortest
   keywordsArr = keywordsArr.slice(0, 3);  // take the first few keywowrds
   // move keywords too long to the last positions.
-  for (let i = 0; i < keywords.length - 1; i++) {
+  for (let i = 0; i < keywordsArr.length - 1; i++) {
     if (keywordsArr[0].length > 30) {
       keywordsArr.push(keywordsArr.shift());  
     }
