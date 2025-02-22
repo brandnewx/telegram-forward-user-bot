@@ -1051,7 +1051,9 @@ async function getKeywords(text) {
   keywords = keywords.replace(/\,{2,}/g, ","); // remove duplicate commas
   keywords = trimWord(keywords, ",");
   keywordsArr = keywords.split(",").filter(Boolean).filter((a) => a.length > 2); // remove empty elements and short elements
+  keywordsArr = [...new Set(keywordsArr)]; // unique keywords
   keywordsArr.sort((a, b) => b.length - a.length);  // sort longest string to shortest
+  keywordsArr = keywordsArr.slice(0, 3);  // take the first few keywowrds
   return keywordsArr;
 }
 
@@ -1174,7 +1176,7 @@ async function onMessageToForward(event, onRefresh = false, onEdit = false) {
       const richfastPassthru = messageLower.includes('profile') || messageLower.includes('username') 
       if (toForward && richfastEnabled && (richfastPassthru === false)) {
         const messageClean = cleanText(message);
-        if (toForward && (messageClean.length <= 3 || messageClean.length > 100)) {
+        if (toForward && (messageClean.length < 3 || messageClean.length > 150)) {
           toForward = false;
           log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Skipped forwarding: message too short or too long`, logAsUser);
         }
