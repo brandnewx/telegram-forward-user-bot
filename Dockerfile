@@ -1,7 +1,7 @@
-FROM brandnewx/ubuntu24:full as base
+FROM brandnewx/ubuntu24:full AS base
 
 # Use this image as the platform to build the app
-FROM base as build
+FROM base AS build
 
 RUN set -xe && \
   apt-get -yqq update && \
@@ -34,7 +34,7 @@ RUN cp -ar /tmp/node-app/locales/. /var/node-app/locales
 RUN mkdir -p /var/node-app/data
 
 RUN set -xe && \
-  usermod -u 1000 www-data 
+  usermod -o -u 1000 www-data 
 
 ## Set file permissions
 RUN chown -R www-data "/var/node-app" && \
@@ -45,7 +45,7 @@ FROM        base AS release
 COPY --from=build /var/node-app/ /var/node-app/
 
 RUN set -xe && \
-  usermod -u 1000 www-data 
+  usermod -o -u 1000 www-data 
 
 WORKDIR /var/node-app
 
