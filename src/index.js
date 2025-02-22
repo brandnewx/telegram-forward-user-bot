@@ -18,6 +18,7 @@ const {CallbackQuery, CallbackQueryEvent} = require('telegram/events/CallbackQue
 const {name: scriptName, version: scriptVersion} = require('./version');
 const i18n = require('./modules/i18n/i18n.config');
 const { sleep } = require('telegram/Helpers');
+const { keywordsIgnore } = require('./keywords-ignore');
 
 const refreshIntervalDefault = 300;
 const resubscribeIntervalDefault = 60;
@@ -1055,6 +1056,7 @@ async function getKeywords(text) {
   keywordsArr = keywords.split(",").filter(Boolean).filter((a) => a.length > 2); // remove empty elements and short elements
   keywordsArr = keywordsArr.filter((a) => /^[\$£€¥฿¢]*[0-9]+(\.)?[0-9]*[\$£€¥฿¢]*$/.test(a) === false); // remove whole numbers
   keywordsArr = keywordsArr.filter((a) => /\d+\/\d+\/\d+(\s+\d+\:\d+(\:\d+(\s*(AM|PM))?)?)?/.test(a) === false); // remove datetime
+  keywordsArr = keywordsArr.filter((a) => keywordsIgnore.has(a) === false); // remove ignore keywords
   // clean keywords
   for (let i = 0; i < keywordsArr.length; i++) {
     keywordsArr[i] = keywordsArr[i].replace(/^[^a-zA-Z0-9]+/g, '').replace(/[^a-zA-Z0-9]+$/g, '') // trim;
@@ -1204,7 +1206,7 @@ async function onMessageToForward(event, onRefresh = false, onEdit = false) {
           );
           if (keywords.length == 0) {
             toForward = false;
-            log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Skipped forwarding: keywords too short or too long`, logAsUser);
+            log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Skipped forwarding: no keyword`, logAsUser);
           }
         }
       }
