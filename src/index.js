@@ -1075,9 +1075,9 @@ async function getKeywords(text) {
     keywords = res.data.translatedText || '';
   })
   .catch(function (e) {
-    log.error(e)
+    log.error(e);
   }); 
-  
+  // Convert to standard keywords array.
   keywords = keywords.normalize('NFKD').replace(/[\u0300-\u036F]/g, ''); // convert latin to asci
   keywords = keywords.replace(/[^\x00-\x7F]/g, ','); // remove all non-ascii
   keywords = cleanText(keywords);
@@ -1091,9 +1091,9 @@ async function getKeywords(text) {
   keywordsArr = keywordsArr.filter((a) => /\d+\/\d+\/\d+(\s+\d+\:\d+(\:\d+(\s*(AM|PM))?)?)?/.test(a) === false); // remove datetime
   keywordsArr = keywordsArr.filter((a) => keywordsIgnore.has(a) === false); // remove ignore keywords
   keywordsArr = keywordsArr.filter((a) => keywordsIgnore2.has(a) === false); // remove ignore keywords 2
-  // clean keywords
+
   for (let i = 0; i < keywordsArr.length; i++) {
-    keywordsArr[i] = keywordsArr[i].replace(/^[^a-zA-Z0-9]+/, '').replace(/[^a-zA-Z0-9]+$/, '') // trim;
+    keywordsArr[i] = keywordsArr[i].replace(/^[^a-zA-Z0-9]+/, '').replace(/[^a-zA-Z0-9]+$/, ''); // Trim some more.
   }
   keywordsArr = keywordsArr.filter((a) => a.length > 2); // remove empty elements and short elements
   keywordsArr = [...new Set(keywordsArr)]; // unique keywords
