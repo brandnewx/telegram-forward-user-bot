@@ -1024,12 +1024,15 @@ function cleanText(text) {
 }
 
 async function getKeywords(text) {
-  // Fast find direct keywords 
-  let keywordsDirectMatches = new Map();
-  let keywordsDirectArr = [];
+  // Checks
   if ((!text || text.length === 0)) {
     return [];
   }
+  text = text.replace(/[\u2018\u2019\u2032]/g, "'")
+               .replace(/[\u201C\u201D\u2033\u201F]/g, '"'); // replace unicode quotes to ascii quotes.
+  // Fast find direct keywords 
+  let keywordsDirectMatches = new Map();
+  let keywordsDirectArr = [];
   const textUpper = text.normalize('NFKD').replace(/[\u0300-\u036F]/g, '').toUpperCase(); // convert latin to ASCII UPPER
   for (let [key, value] of keywordsMap) {
     const foundIndex = textUpper.indexOf(key);
@@ -1084,9 +1087,7 @@ async function getKeywords(text) {
   keywords = keywords.normalize('NFKD').replace(/[\u0300-\u036F]/g, ''); // convert latin to asci
   keywords = keywords.replace(/[^\x00-\x7F]/g, ','); // remove all non-ascii
   keywords = cleanText(keywords);
-  keywords = keywords.replace(/\,\s+/g, ",");  // remove duplicate commas
-  keywords = keywords.replace(/\s+\,/g, ",");  // remove duplicate commas
-  keywords = keywords.replace(/\,{2,}/g, ","); // remove duplicate commas
+  keywords = keywords.replace(/\s*,+\s*/g, ",");  // remove duplicate commas
   keywords = trimWord(keywords, ",");
   keywords = keywords.toUpperCase();
   keywordsArr = keywords.split(",").filter(Boolean).filter((a) => a.length > 2); // remove empty elements and short elements
