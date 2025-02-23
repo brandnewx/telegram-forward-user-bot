@@ -1077,6 +1077,9 @@ async function getKeywords(text) {
   .catch(function (e) {
     log.error(e);
   }); 
+  if ((!keywords || keywords.length === 0)) {
+    return [];
+  }
   // Convert to standard keywords array.
   keywords = keywords.normalize('NFKD').replace(/[\u0300-\u036F]/g, ''); // convert latin to asci
   keywords = keywords.replace(/[^\x00-\x7F]/g, ','); // remove all non-ascii
