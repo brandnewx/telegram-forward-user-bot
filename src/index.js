@@ -1030,6 +1030,24 @@ async function getKeywords(text) {
   }
   text = text.replace(/[\u2018\u2019\u2032]/g, "'")
                .replace(/[\u201C\u201D\u2033\u201F]/g, '"'); // replace unicode quotes to ascii quotes.
+  // Find exact Solana token addresses
+  const solAddressRegex = /([^1-9A-HJ-NP-Za-km-z]|^)([1-9A-HJ-NP-Za-km-z]{44})([^1-9A-HJ-NP-Za-km-z]|$)/g;
+  const solAddresses = text.match(solAddressRegex);
+  let solDirectArr = [];
+  if (solAddresses?.length > 0) {
+    for (let i = 0; i < solAddresses.length; i++) {
+      const solAddress = solAddresses[i].match(/[1-9A-HJ-NP-Za-km-z]{44}/)[0];
+      if (solAddress?.length > 0) {
+        solDirectArr.push(solAddress);
+      }
+    }
+  }
+  if (solDirectArr.length > 0) {
+    solDirectArr = [...new Set(solDirectArr)].slice(0, 3); 
+    if (solDirectArr.length > 0) {
+      return solDirectArr;
+    }
+  }
   // Fast find direct keywords 
   let keywordsDirectMatches = new Map();
   let keywordsDirectArr = [];
@@ -1059,6 +1077,10 @@ async function getKeywords(text) {
   }
 
   // Try translation to get name entity (NER)
+  text = text.replace(/[^\s]{30,}/g, ''); // remove long gibberish text that may look like address.
+  if ((!text || text.length === 0)) {
+    return [];
+  }
   const translateArgs = {
       q: text,
       source: "en",

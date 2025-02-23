@@ -640,7 +640,7 @@ const keywordsIgnoreArr2 = [
     "SPOTLIGHT", "SOAR", "SQUAD", "MARINES", "OFFENSE", "REWARD", "TIER", "SMASH", "TEAR", "RIP", "SLASH", "MESS",
     "CHAOS", "ORDERLY", "NEAT", "TIDY", "DULL", "BLUNT", "TALE", "SAGA", "TRUMP", "LIVE STREAM", "STREAMING",
     "LIVE-STREAM", "LIVING STREAMING", "LIVE-STREAMING", "LIVE!", "GO LIVE", "GO LIVE!", "LIVE NOW", "LIVE NOW!",
-    "ON AIR", "OURS", "YOURSELVES", "RETWEET", "GROK", "GROK 2", "GROK 3", "GROK-2", "GROK-3"
+    "ON AIR", "OURS", "YOURSELVES", "RETWEET", "GROK", "GROK 2", "GROK 3", "GROK-2", "GROK-3", "GROK3", "GROK2"
 ];
 
 export const keywordsIgnore2 = new Set(keywordsIgnoreArr2);
