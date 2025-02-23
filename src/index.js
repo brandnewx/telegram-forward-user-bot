@@ -852,6 +852,13 @@ function updateForwardListeners(force = false) {
   }
 }
 
+function isMessageMedia(messageFull) {
+  if (messageFull.media != null && !(messageFull.media instanceof Api.MessageMediaEmpty) && !(messageFull.media instanceof Api.MessageMediaWebPage) && !(messageFull.media instanceof Api.MessageMediaUnsupported)) {
+    return true;
+  }
+  return false;
+}
+
 // eslint-disable-next-line sonarjs/sonar-max-params
 function forwardMessage(rule, fromPeer, sourceId, toPeer, lastProcessedId, messageId, message, messageEditDate, messageFull, keywords, solAddresses) {
   const hasEntities = (Array.isArray(messageFull.entities) && messageFull.entities.length > 0);
@@ -871,7 +878,7 @@ function forwardMessage(rule, fromPeer, sourceId, toPeer, lastProcessedId, messa
       entities: messageFull.entities,
   };
   let isMedia = false;
-  if (messageFull.media != null && !(messageFull.media instanceof Api.MessageMediaEmpty) && !(messageFull.media instanceof Api.MessageMediaWebPage) && !(messageFull.media instanceof Api.MessageMediaUnsupported)) {
+  if (isMessageMedia(messageFull)) {
     isMedia = true;
     messageInput.media = messageFull.media;
     log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Message is media`, logAsUser);
@@ -1046,7 +1053,8 @@ function cleanText(text) {
   res = res.replaceAll('[Quote]', '');  // remove weak words
   res = res.replaceAll(/(Quote|ReTweet|Tweet|Reply|Comment) from [^\s]*/g, ''); // remove context words
   res = res.replace(/@[^\s]+/g, "");  // remove emails
-  res = res.replace(/[a-zA-Z]+\:\/\/[^\s]*/g, "");  // remove links
+  res = res.replace(/[a-zA-Z]+\:\/\/[^\s]*/g, "");  // remove full urls
+  res = res.replace(/([a-zA-Z]+\:\/\/)?([a-zA-Z0-9\-]+\.)?[a-zA-Z0-9\-]+\.[a-zA-Z0-9\-]+(\.[a-zA-Z0-9\-]+)?\/[^\s]*/g, "");  // remove text similar to link 
   res = res.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '') // remove emoji
   res = res.replace(/\s{2,}/g, " "); // remove duplicate spaces
   return res.trim();
@@ -1289,11 +1297,12 @@ async function onMessageToForward(event, onRefresh = false, onEdit = false) {
           toForward = true;
         }
       }
-
+      // Check whether to pass the message thru regardless of keywords/sol addresses found or rnot.
+      const messageLower = message.toLowerCase();
+      const richfastPassthru = messageLower.includes('profile') || messageLower.includes('username');
+      richfastPassthru = richfastPassthru || isMessageMedia(messageFull); // pass thru the media because cannot analyze media yet.
       // Filter out irrelevant messages.
       let keywords = [];
-      const messageLower = message.toLowerCase();
-      const richfastPassthru = messageLower.includes('profile') || messageLower.includes('username') 
       if (toForward && richfastEnabled && (richfastPassthru === false) && solAddresses.length == 0) {
         // Skip short/long message.
         const messageClean = cleanText(message);
