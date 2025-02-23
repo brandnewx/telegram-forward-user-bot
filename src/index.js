@@ -19,6 +19,7 @@ const {name: scriptName, version: scriptVersion} = require('./version');
 const i18n = require('./modules/i18n/i18n.config');
 const { sleep } = require('telegram/Helpers');
 const { keywordsIgnore } = require('./keywords-ignore');
+const { keywordsIgnore2 } = require('./keywords-ignore2');
 
 const refreshIntervalDefault = 300;
 const resubscribeIntervalDefault = 60;
@@ -1057,6 +1058,7 @@ async function getKeywords(text) {
   keywordsArr = keywordsArr.filter((a) => /^[\$£€¥฿¢%\!\#\&\*]*[0-9]+(\.)?[0-9]*[\$£€¥฿¢%\!\#\&\*]*$/.test(a) === false); // remove whole numbers
   keywordsArr = keywordsArr.filter((a) => /\d+\/\d+\/\d+(\s+\d+\:\d+(\:\d+(\s*(AM|PM))?)?)?/.test(a) === false); // remove datetime
   keywordsArr = keywordsArr.filter((a) => keywordsIgnore.has(a) === false); // remove ignore keywords
+  keywordsArr = keywordsArr.filter((a) => keywordsIgnore2.has(a) === false); // remove ignore keywords 2
   // clean keywords
   for (let i = 0; i < keywordsArr.length; i++) {
     keywordsArr[i] = keywordsArr[i].replace(/^[^a-zA-Z0-9]+/g, '').replace(/[^a-zA-Z0-9]+$/g, '') // trim;
