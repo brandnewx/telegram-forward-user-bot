@@ -853,7 +853,7 @@ function updateForwardListeners(force = false) {
 }
 
 // eslint-disable-next-line sonarjs/sonar-max-params
-function forwardMessage(rule, fromPeer, sourceId, toPeer, lastProcessedId, messageId, message, messageEditDate, messageFull, keywords) {
+function forwardMessage(rule, fromPeer, sourceId, toPeer, lastProcessedId, messageId, message, messageEditDate, messageFull, keywords, solAddresses) {
   const hasEntities = (Array.isArray(messageFull.entities) && messageFull.entities.length > 0);
   const messageInput = {
       peer: toPeer,
@@ -899,8 +899,37 @@ function forwardMessage(rule, fromPeer, sourceId, toPeer, lastProcessedId, messa
     .catch((err) => {
       log.warn(`[${rule.label}, ${sourceId}, ${messageId}]: ${err}`, logAsUser);
     });
+  // Send addresses with new message
+  if (solAddresses?.length > 0) {
+    let messageAddresses = "";
+    for (let i = 0; i < solAddresses.length; i++) {
+      messageAddresses = messageAddresses.concat("\r\n" + solAddresses[i] + "\r\n" + 'http://dexscreener.com/solana/' + encodeURIComponent(solAddresses[i]) + "\r\n");
+    }
+    const addressInput = {
+        peer: toPeer,
+        message: messageAddresses,
+        randomId: getRandomId(),
+        noWebpage: true,
+        noforwards: false,
+        silent: false,
+        background: false,
+        withMyScore: false,
+        grouped: false,
+        fromLive: false,
+        useQuickAck: false,
+        scheduleDate: null,
+        replyMarkup: null
+    };
+    clientAsUser
+      .invoke(new Api.messages.SendMessage(addressInput))
+      .then((res) => {
+      })
+      .catch((err) => {
+        log.warn(`[${rule.label}, ${sourceId}, ${messageId}]: ${err}`, logAsUser);
+      });
+  }
   // Send keyword with new message
-  if (keywords?.length > 0) {
+  if (keywords?.length > 0 && solAddresses?.length == 0) {
     sleep(100);
     // const keywordMarkup = new Api.ReplyInlineMarkup({
     //   rows : [
@@ -1023,13 +1052,11 @@ function cleanText(text) {
   return res.trim();
 }
 
-async function getKeywords(text) {
+function getSolAddresses(text) {
   // Checks
   if ((!text || text.length === 0)) {
     return [];
   }
-  text = text.replace(/[\u2018\u2019\u2032]/g, "'")
-               .replace(/[\u201C\u201D\u2033\u201F]/g, '"'); // replace unicode quotes to ascii quotes.
   // Find exact Solana token addresses
   const solAddressRegex = /([^1-9A-HJ-NP-Za-km-z]|^)([1-9A-HJ-NP-Za-km-z]{44})([^1-9A-HJ-NP-Za-km-z]|$)/g;
   const solAddresses = text.match(solAddressRegex);
@@ -1044,10 +1071,17 @@ async function getKeywords(text) {
   }
   if (solDirectArr.length > 0) {
     solDirectArr = [...new Set(solDirectArr)].slice(0, 3); 
-    if (solDirectArr.length > 0) {
-      return solDirectArr;
-    }
   }
+  return solDirectArr;
+}
+
+async function getKeywords(text) {
+  // Checks
+  if ((!text || text.length === 0)) {
+    return [];
+  }
+  text = text.replace(/[\u2018\u2019\u2032]/g, "'")
+               .replace(/[\u201C\u201D\u2033\u201F]/g, '"'); // replace unicode quotes to ascii quotes.
   // Fast find direct keywords 
   let keywordsDirectMatches = new Map();
   let keywordsDirectArr = [];
@@ -1246,18 +1280,28 @@ async function onMessageToForward(event, onRefresh = false, onEdit = false) {
           });
         log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Result of rules check to forward: ${toForward}`, logAsUser);
       }
-      // Filter out irrelevant messages.
-      let keywords;
+      // Find exact token addresses.
       const richfastEnabled = (richfastMode === "basic") || (richfastMode === "keywords");
+      let solAddresses = [];
+      if (richfastEnabled) {
+        solAddresses = getSolAddresses(message);
+        if (solAddresses.length > 0) {
+          toForward = true;
+        }
+      }
+
+      // Filter out irrelevant messages.
+      let keywords = [];
       const messageLower = message.toLowerCase();
       const richfastPassthru = messageLower.includes('profile') || messageLower.includes('username') 
-      if (toForward && richfastEnabled && (richfastPassthru === false)) {
+      if (toForward && richfastEnabled && (richfastPassthru === false) && solAddresses.length == 0) {
+        // Skip short/long message.
         const messageClean = cleanText(message);
         if (toForward && (messageClean.length < 3 || messageClean.length > 150)) {
           toForward = false;
           log.info(`[${rule.label}, ${sourceId}, ${messageId}]: Skipped forwarding: message too short or too long`, logAsUser);
         }
-        // send to translation service to find keywords.
+        // Find keywords.
         if (toForward && (richfastMode === "keywords")) {
           keywords = await getKeywords(messageClean);
           log.info(
@@ -1281,11 +1325,11 @@ async function onMessageToForward(event, onRefresh = false, onEdit = false) {
             id: messageId,
             timeout: setTimeout(() => {
               delete lastForwardedDelayed[rule.from.id];
-              forwardMessage(rule, peerId, sourceId, entityTo, lastProcessedId, messageId, message, messageEditDate, messageFull, keywords);
+              forwardMessage(rule, peerId, sourceId, entityTo, lastProcessedId, messageId, message, messageEditDate, messageFull, keywords, solAddresses);
             }, rule.antiFastEditDelay * 1000),
           };
         } else {
-          forwardMessage(rule, peerId, sourceId, entityTo, lastProcessedId, messageId, message, messageEditDate, messageFull, keywords);
+          forwardMessage(rule, peerId, sourceId, entityTo, lastProcessedId, messageId, message, messageEditDate, messageFull, keywords, solAddresses);
         }
       } else {
         log.debug(`[${rule.label}, ${sourceId}, ${messageId}]: Message is not forwarded! See reasons above.`, logAsUser);
