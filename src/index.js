@@ -20,6 +20,7 @@ const i18n = require('./modules/i18n/i18n.config');
 const { sleep } = require('telegram/Helpers');
 const { keywordsIgnore } = require('./keywords-ignore');
 const { keywordsIgnore2 } = require('./keywords-ignore2');
+const { keywordsMap } = require('./keywords-map');
 
 const refreshIntervalDefault = 300;
 const resubscribeIntervalDefault = 60;
@@ -1023,6 +1024,23 @@ function cleanText(text) {
 }
 
 async function getKeywords(text) {
+  // Find direct keywords first and foremost
+  let keywordsDirectArr = [];
+  if ((!text || text.length === 0)) {
+    return [];
+  }
+  const textUpper = text.toUpperCase();
+  for (let [key, value] of keywordsMap) {
+    if (textUpper.indexOf(key) >= 0) {
+      keywordsDirectArr.push(value);
+    }
+  }
+  keywordsDirectArr = [...new Set(keywordsDirectArr)].slice(0, 3); // few unique keywords only
+  if (keywordsDirectArr.length > 0) {
+    return keywordsDirectArr;
+  }
+
+  // Try translation to get name entity (NER)
   const translateArgs = {
       q: text,
       source: "en",
@@ -1031,7 +1049,6 @@ async function getKeywords(text) {
       alternatives: 0,
       api_key: "15bfbc43-e257-44de-bb2e-bdceaa5df6f6"
     };
-  
   let keywords = '';
   await axios.post("https://translate112233.kantrok.com/translate", translateArgs, {
     headers: {
