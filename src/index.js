@@ -1030,7 +1030,7 @@ async function getKeywords(text) {
   if ((!text || text.length === 0)) {
     return [];
   }
-  const textUpper = text.toUpperCase();
+  const textUpper = text.normalize('NFKD').replace(/[\u0300-\u036F]/g, '').toUpperCase(); // convert latin to ASCII UPPER
   for (let [key, value] of keywordsMap) {
     const foundIndex = textUpper.indexOf(key);
     if (foundIndex > 0) {
