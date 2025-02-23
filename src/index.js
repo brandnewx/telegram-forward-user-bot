@@ -1126,7 +1126,7 @@ async function getKeywords(text) {
   const translateArgs = {
       q: text,
       source: "en",
-      target: "ko",
+      target: "ja",
       format: "text",
       alternatives: 0,
       api_key: "15bfbc43-e257-44de-bb2e-bdceaa5df6f6"
