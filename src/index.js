@@ -1054,7 +1054,7 @@ async function getKeywords(text) {
   keywords = trimWord(keywords, ",");
   keywords = keywords.toUpperCase();
   keywordsArr = keywords.split(",").filter(Boolean).filter((a) => a.length > 2); // remove empty elements and short elements
-  keywordsArr = keywordsArr.filter((a) => /^[\$£€¥฿¢]*[0-9]+(\.)?[0-9]*[\$£€¥฿¢]*$/.test(a) === false); // remove whole numbers
+  keywordsArr = keywordsArr.filter((a) => /^[\$£€¥฿¢%\!\#\&\*]*[0-9]+(\.)?[0-9]*[\$£€¥฿¢%\!\#\&\*]*$/.test(a) === false); // remove whole numbers
   keywordsArr = keywordsArr.filter((a) => /\d+\/\d+\/\d+(\s+\d+\:\d+(\:\d+(\s*(AM|PM))?)?)?/.test(a) === false); // remove datetime
   keywordsArr = keywordsArr.filter((a) => keywordsIgnore.has(a) === false); // remove ignore keywords
   // clean keywords
