@@ -1299,7 +1299,7 @@ async function onMessageToForward(event, onRefresh = false, onEdit = false) {
       }
       // Check whether to pass the message thru regardless of keywords/sol addresses found or rnot.
       const messageLower = message.toLowerCase();
-      const richfastPassthru = messageLower.includes('profile') || messageLower.includes('username');
+      let richfastPassthru = messageLower.includes('profile') || messageLower.includes('username');
       richfastPassthru = richfastPassthru || isMessageMedia(messageFull); // pass thru the media because cannot analyze media yet.
       // Filter out irrelevant messages.
       let keywords = [];
