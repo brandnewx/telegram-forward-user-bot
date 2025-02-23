@@ -1024,20 +1024,35 @@ function cleanText(text) {
 }
 
 async function getKeywords(text) {
-  // Find direct keywords first and foremost
+  // Fast find direct keywords 
+  let keywordsDirectMatches = new Map();
   let keywordsDirectArr = [];
   if ((!text || text.length === 0)) {
     return [];
   }
   const textUpper = text.toUpperCase();
   for (let [key, value] of keywordsMap) {
-    if (textUpper.indexOf(key) >= 0) {
+    const foundIndex = textUpper.indexOf(key);
+    if (foundIndex > 0) {
+      keywordsDirectMatches.set(key, value);
+    } else if (foundIndex == 0) {
       keywordsDirectArr.push(value);
     }
   }
-  keywordsDirectArr = [...new Set(keywordsDirectArr)].slice(0, 3); // few unique keywords only
+  // Retest with regex to make sure matching whole words only.
+  for (let [key, value] of keywordsDirectMatches) {
+    const keyEscaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regExp = new RegExp('[^a-zA-Z0-9]' + keyEscaped, '');
+    if (regExp.test(textUpper) === true) {
+      keywordsDirectArr.push(value);
+    }
+  }
+  // Limit to few unique keywords only if there's any at all
   if (keywordsDirectArr.length > 0) {
-    return keywordsDirectArr;
+    keywordsDirectArr = [...new Set(keywordsDirectArr)].slice(0, 3); 
+    if (keywordsDirectArr.length > 0) {
+      return keywordsDirectArr;
+    }
   }
 
   // Try translation to get name entity (NER)
@@ -1078,7 +1093,7 @@ async function getKeywords(text) {
   keywordsArr = keywordsArr.filter((a) => keywordsIgnore2.has(a) === false); // remove ignore keywords 2
   // clean keywords
   for (let i = 0; i < keywordsArr.length; i++) {
-    keywordsArr[i] = keywordsArr[i].replace(/^[^a-zA-Z0-9]+/g, '').replace(/[^a-zA-Z0-9]+$/g, '') // trim;
+    keywordsArr[i] = keywordsArr[i].replace(/^[^a-zA-Z0-9]+/, '').replace(/[^a-zA-Z0-9]+$/, '') // trim;
   }
   keywordsArr = keywordsArr.filter((a) => a.length > 2); // remove empty elements and short elements
   keywordsArr = [...new Set(keywordsArr)]; // unique keywords

@@ -1,4 +1,7 @@
 export const keywordsMap = new Map([
+    ["DOGEFATHERS", "DOGEFATHERS"],
+    ["DOGE FATHERS", "DOGEFATHERS"],
+    ["DOGE-FATHERS", "DOGEFATHERS"],
     ["DOGEFATHER", "DOGEFATHER"],
     ["DOGE FATHER", "DOGEFATHER"],
     ["DOGE-FATHER", "DOGEFATHER"],
